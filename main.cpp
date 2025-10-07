@@ -15,26 +15,39 @@ constexpr int SCREEN_WIDTH  = 1600 / 1.1,
               SCREEN_HEIGHT = 900 / 1.1,
               FPS           = 60,
               SIZE          = 500 / 2,
-              SPEED         = 200;
+              SLIDER_SPEED  = 500;
 
-constexpr char    BG_COLOUR[]    = "#424242ff";
+constexpr char    BG_COLOUR[]    = "#000000ff";
 constexpr Vector2 ORIGIN         = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 },
-                  BASE_SIZE      = { (float) SIZE, (float) SIZE },
-                  INIT_POS  = { ORIGIN.x, ORIGIN.y };
+                  SLIDER_SIZE      = { (float) SIZE / 4, (float) SIZE / 2  },
+                  SLIDER1_INIT_POS  = { ORIGIN.x - 680, ORIGIN.y },
+                  SLIDER2_INIT_POS  = { ORIGIN.x + 680, ORIGIN.y },
+                  DASHED_LINE_SIZE = { (float) 63, (float) 942 },
+                  DASHED_LINE_POS = { ORIGIN.x, ORIGIN.y - 20 };
                   
-constexpr char SLIDER1[] = "assets/game/slider.png";
+constexpr char SLIDER[] = "assets/game/slider.png";
+constexpr char DASHED_LINE[] = "assets/game/dashed_line.png";
+
 
 // Global Variables
 AppStatus gAppStatus     = RUNNING;
 float     gAngle         = 0.0f,
           gPreviousTicks = 0.0f;
 
-Vector2 gPosition  = INIT_POS,
-        gMovement  = { 0.0f, 0.0f },
-        gScale     = BASE_SIZE,
+Vector2 gSlider1Position  = SLIDER1_INIT_POS,
+        gSlider2Position  = SLIDER2_INIT_POS,
+        gSlider1Movement  = { 0.0f, 0.0f },
+        gSlider2Movement  = { 0.0f, 0.0f },
+        gSliderScale     = SLIDER_SIZE,
+
+        gDashedLinePosition = DASHED_LINE_POS,
+        gDashedLineScale    = DASHED_LINE_SIZE,
+
         gMousePosition = GetMousePosition();
 
 Texture2D gSLIDER1;
+Texture2D gSLIDER2;
+Texture2D gDASHED_LINE;
 
 unsigned int startTime;
 
@@ -54,17 +67,23 @@ void initialise()
 
     startTime = time(NULL);
 
-    gSLIDER1  = LoadTexture(SLIDER1);
+    gSLIDER1  = LoadTexture(SLIDER);
+    gSLIDER2  = LoadTexture(SLIDER);
+    gDASHED_LINE = LoadTexture(DASHED_LINE);
 
     SetTargetFPS(FPS);
 }
 
 void processInput() 
 {
-    gMovement = { 0.0f, 0.0f };
+    gSlider1Movement = { 0.0f, 0.0f };
+    gSlider2Movement = { 0.0f, 0.0f };
 
-    if      (IsKeyDown(KEY_W)) gMovement.y = -1;
-    else if (IsKeyDown(KEY_S)) gMovement.y =  1;
+    if      (IsKeyDown(KEY_W)) gSlider1Movement.y = -1;
+    else if (IsKeyDown(KEY_S)) gSlider1Movement.y =  1;
+
+    if     (IsKeyDown(KEY_UP)) gSlider2Movement.y = -1;
+    else if (IsKeyDown(KEY_DOWN)) gSlider2Movement.y =  1;
 
     /*
     This system will cause quite a bit of "shaking" once the game object
@@ -72,8 +91,8 @@ void processInput()
     once the object reaches a general area AROUND the mouse position.
     */
    
-    // to avoid faster diagonal speed
-    if (GetLength(&gMovement) > 1.0f) Normalise(&gMovement);
+    // // to avoid faster diagonal speed
+    // if (GetLength(&gSlider1Movement) > 1.0f) Normalise(&gSlider1Movement);
 
     if (IsKeyPressed(KEY_Q) || WindowShouldClose()) gAppStatus = TERMINATED;
 }
@@ -85,9 +104,14 @@ void update()
     float deltaTime = ticks - gPreviousTicks;
     gPreviousTicks  = ticks;
     
-    gPosition = {
-    gPosition.x + SPEED * gMovement.x * deltaTime,
-    gPosition.y + SPEED * gMovement.y * deltaTime
+    gSlider1Position = {
+    gSlider1Position.x + SLIDER_SPEED * gSlider1Movement.x * deltaTime,
+    gSlider1Position.y + SLIDER_SPEED * gSlider1Movement.y * deltaTime
+    };
+
+    gSlider2Position = {
+    gSlider2Position.x + SLIDER_SPEED * gSlider2Movement.x * deltaTime,
+    gSlider2Position.y + SLIDER_SPEED * gSlider2Movement.y * deltaTime
     };
 }
 
@@ -97,7 +121,11 @@ void render()
     ClearBackground(ColorFromHex(BG_COLOUR));
 
     // Render SLIDER1
-    renderObject(&gSLIDER1, &gPosition, &gScale);
+    renderObject(&gSLIDER1, &gSlider1Position, &gSliderScale);
+    // Render SLIDER2
+    renderObject(&gSLIDER1, &gSlider2Position, &gSliderScale);
+    // Render DASHED LINE
+    renderObject(&gDASHED_LINE, &gDashedLinePosition, &gDashedLineScale);
 
     EndDrawing();
 }
@@ -106,6 +134,8 @@ void shutdown()
 { 
     CloseWindow(); 
     UnloadTexture(gSLIDER1);
+    UnloadTexture(gSLIDER2);
+    UnloadTexture(gDASHED_LINE);
 
 }
 
