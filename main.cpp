@@ -15,22 +15,27 @@ constexpr int SCREEN_WIDTH  = 1600 / 1.1,
               SCREEN_HEIGHT = 900 / 1.1,
               FPS           = 60,
               SIZE          = 500 / 2,
-              SLIDER_SPEED  = 500;
+              SLIDER_SPEED  = 500,
+              INIT_BALL_SPEED = 500;
 
 constexpr char    BG_COLOUR[]    = "#000000ff";
 constexpr Vector2 ORIGIN         = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 },
-                  SLIDER_SIZE      = { (float) SIZE / 4, (float) SIZE / 2  },
+                  SLIDER_SIZE      = { (float) 382 / 30, (float) 1557 / 10 },
                   SLIDER1_INIT_POS  = { ORIGIN.x - 680, ORIGIN.y },
                   SLIDER2_INIT_POS  = { ORIGIN.x + 680, ORIGIN.y },
                   DASHED_LINE_SIZE = { (float) 63, (float) 942 },
-                  DASHED_LINE_POS = { ORIGIN.x, ORIGIN.y - 20 };
+                  DASHED_LINE_POS = { ORIGIN.x, ORIGIN.y - 20 },
+                  BALL_SIZE       = { (float) 198 / 8, (float) 198 / 8 },
+                  BALL_INIT_POS   = { ORIGIN.x, ORIGIN.y };
                   
 constexpr char SLIDER[] = "assets/game/slider.png";
 constexpr char DASHED_LINE[] = "assets/game/dashed_line.png";
+constexpr char BALL[] = "assets/game/ball.png";
 
 
 // Global Variables
 AppStatus gAppStatus     = RUNNING;
+bool      gGameStarted   = false;
 float     gAngle         = 0.0f,
           gPreviousTicks = 0.0f;
 
@@ -40,6 +45,10 @@ Vector2 gSlider1Position  = SLIDER1_INIT_POS,
         gSlider2Movement  = { 0.0f, 0.0f },
         gSliderScale     = SLIDER_SIZE,
 
+        gBallPosition    = BALL_INIT_POS,
+        gBallMovement    = { 0.0f, 0.0f },
+        gBallScale       = BALL_SIZE,
+
         gDashedLinePosition = DASHED_LINE_POS,
         gDashedLineScale    = DASHED_LINE_SIZE,
 
@@ -48,8 +57,12 @@ Vector2 gSlider1Position  = SLIDER1_INIT_POS,
 Texture2D gSLIDER1;
 Texture2D gSLIDER2;
 Texture2D gDASHED_LINE;
+Texture2D gBALL;
 
 unsigned int startTime;
+
+float gWallSliderBound = gSliderScale.y / 2.0f,
+      gWallBallBound   = gBallScale.y / 2.0f;
 
 // Function Declarations
 void initialise();
@@ -67,9 +80,10 @@ void initialise()
 
     startTime = time(NULL);
 
-    gSLIDER1  = LoadTexture(SLIDER);
-    gSLIDER2  = LoadTexture(SLIDER);
-    gDASHED_LINE = LoadTexture(DASHED_LINE);
+    gSLIDER1        = LoadTexture(SLIDER);
+    gSLIDER2        = LoadTexture(SLIDER);
+    gDASHED_LINE    = LoadTexture(DASHED_LINE);
+    gBALL           = LoadTexture(BALL);
 
     SetTargetFPS(FPS);
 }
@@ -113,6 +127,67 @@ void update()
     gSlider2Position.x + SLIDER_SPEED * gSlider2Movement.x * deltaTime,
     gSlider2Position.y + SLIDER_SPEED * gSlider2Movement.y * deltaTime
     };
+
+    if (gSlider1Position.y < gWallSliderBound) {
+        gSlider1Position.y = gWallSliderBound;
+    }
+    else if (gSlider1Position.y > SCREEN_HEIGHT - gWallSliderBound) {
+        gSlider1Position.y = SCREEN_HEIGHT - gWallSliderBound;
+    }
+
+    if (gSlider2Position.y < gWallSliderBound) {
+        gSlider2Position.y = gWallSliderBound;
+    }
+    else if (gSlider2Position.y > SCREEN_HEIGHT - gWallSliderBound) {
+        gSlider2Position.y = SCREEN_HEIGHT - gWallSliderBound;
+    }
+
+    if (gBallMovement.x == 0.0f && gBallMovement.y == 0.0f) {
+        gBallMovement = { 1.0f, -0.005f };
+        Normalise(&gBallMovement);
+        gGameStarted = true;
+    }
+    gBallPosition = {
+        gBallPosition.x + INIT_BALL_SPEED * gBallMovement.x * deltaTime,
+        gBallPosition.y + INIT_BALL_SPEED * gBallMovement.y * deltaTime
+    };
+
+    if (gBallPosition.y < gWallBallBound) {
+        gBallPosition.y = gWallBallBound;
+        gBallMovement.y *= -1;
+        Normalise(&gBallMovement);
+    }
+    else if (gBallPosition.y > SCREEN_HEIGHT - gWallBallBound) {
+        gBallPosition.y = SCREEN_HEIGHT - gWallBallBound;
+        gBallMovement.y *= -1;
+        Normalise(&gBallMovement);
+    }
+
+    if (gBallPosition.x < 0.0f || gBallPosition.x > SCREEN_WIDTH) {
+        gGameStarted = false;
+        gBallPosition = BALL_INIT_POS;
+        gBallMovement.x = 0.0f;
+        gBallMovement.y = 0.0f;
+    }
+
+    float offset = 0.0f;
+    if (isColliding(&gBallPosition, &gBallScale, &gSlider1Position, &gSliderScale)) {
+        offset = (gBallPosition.y - gSlider1Position.y) / (gSliderScale.y / 2.0f);
+        Normalise(&gBallMovement);
+        gBallPosition.x = gSlider1Position.x + (gSliderScale.x / 2.0f) + (gBallScale.x / 2.0f);
+        gBallMovement.x *= -1;
+        gBallMovement.y = offset;
+
+    }
+    else if (isColliding(&gBallPosition, &gBallScale, &gSlider2Position, &gSliderScale)) {
+        offset = (gBallPosition.y - gSlider2Position.y) / (gSliderScale.y / 2.0f);
+        Normalise(&gBallMovement);
+        gBallPosition.x = gSlider2Position.x - (gSliderScale.x / 2.0f) - (gBallScale.x / 2.0f);
+        gBallMovement.x *= -1;
+        gBallMovement.y = offset;
+    }
+
+
 }
 
 void render()
@@ -126,6 +201,8 @@ void render()
     renderObject(&gSLIDER1, &gSlider2Position, &gSliderScale);
     // Render DASHED LINE
     renderObject(&gDASHED_LINE, &gDashedLinePosition, &gDashedLineScale);
+    // Render BALL
+    renderObject(&gBALL, &gBallPosition, &gBallScale);
 
     EndDrawing();
 }
@@ -136,6 +213,7 @@ void shutdown()
     UnloadTexture(gSLIDER1);
     UnloadTexture(gSLIDER2);
     UnloadTexture(gDASHED_LINE);
+    UnloadTexture(gBALL);
 
 }
 
