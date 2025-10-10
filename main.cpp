@@ -35,7 +35,10 @@ constexpr char BALL[] = "assets/game/ball.png";
 
 // Global Variables
 AppStatus gAppStatus     = RUNNING;
-bool      gGameStarted   = false;
+bool      gGameStarted   = false,
+          gPlayerOneBall = false,
+          gPlayerTwoBall = false;
+
 float     gAngle         = 0.0f,
           gPreviousTicks = 0.0f;
 
@@ -143,7 +146,18 @@ void update()
     }
 
     if (gBallMovement.x == 0.0f && gBallMovement.y == 0.0f) {
-        gBallMovement = { 1.0f, -0.005f };
+        if (gPlayerOneBall) {
+            gBallMovement = { -1.0f, -0.005f };
+            gPlayerOneBall = false;
+        }
+        else if (gPlayerTwoBall) {
+            gBallMovement = { 1.0f, -0.005f };
+            gPlayerTwoBall = false;
+        }
+        else {
+            gBallMovement = { 1.0f, -0.005f };
+        }
+        
         Normalise(&gBallMovement);
         gGameStarted = true;
     }
@@ -163,30 +177,40 @@ void update()
         Normalise(&gBallMovement);
     }
 
-    if (gBallPosition.x < 0.0f || gBallPosition.x > SCREEN_WIDTH) {
+    if (gBallPosition.x < 0.0f) {
         gGameStarted = false;
         gBallPosition = BALL_INIT_POS;
         gBallMovement.x = 0.0f;
         gBallMovement.y = 0.0f;
+        gPlayerTwoBall = true;
+    }
+
+    if (gBallPosition.x > SCREEN_WIDTH) {
+        gGameStarted = false;
+        gBallPosition = BALL_INIT_POS;
+        gBallMovement.x = 0.0f;
+        gBallMovement.y = 0.0f;
+        gPlayerOneBall = true;
     }
 
     float offset = 0.0f;
     if (isColliding(&gBallPosition, &gBallScale, &gSlider1Position, &gSliderScale)) {
         offset = (gBallPosition.y - gSlider1Position.y) / (gSliderScale.y / 2.0f);
-        Normalise(&gBallMovement);
+
         gBallPosition.x = gSlider1Position.x + (gSliderScale.x / 2.0f) + (gBallScale.x / 2.0f);
         gBallMovement.x *= -1;
         gBallMovement.y = offset;
+        Normalise(&gBallMovement);
 
     }
     else if (isColliding(&gBallPosition, &gBallScale, &gSlider2Position, &gSliderScale)) {
         offset = (gBallPosition.y - gSlider2Position.y) / (gSliderScale.y / 2.0f);
-        Normalise(&gBallMovement);
+
         gBallPosition.x = gSlider2Position.x - (gSliderScale.x / 2.0f) - (gBallScale.x / 2.0f);
         gBallMovement.x *= -1;
         gBallMovement.y = offset;
+        Normalise(&gBallMovement);
     }
-
 
 }
 
