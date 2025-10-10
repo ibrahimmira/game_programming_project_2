@@ -9,12 +9,13 @@
 **/
 
 #include "CS3113/cs3113.h"
+#include <iostream>
 
 // Global Constants
 constexpr int SCREEN_WIDTH  = 1600 / 1.1,
               SCREEN_HEIGHT = 900 / 1.1,
               FPS           = 60,
-              SIZE          = 500 / 2,
+              // SIZE          = 500 / 2,
               SLIDER_SPEED  = 500,
               INIT_BALL_SPEED = 500;
 
@@ -38,6 +39,10 @@ AppStatus gAppStatus     = RUNNING;
 bool      gGameStarted   = false,
           gPlayerOneBall = false,
           gPlayerTwoBall = false;
+
+enum gGAMEMODE  { TWO_PLAYER, SINGLE_PLAYER };
+
+gGAMEMODE currMODE = TWO_PLAYER;
 
 float     gAngle         = 0.0f,
           gPreviousTicks = 0.0f;
@@ -76,6 +81,8 @@ void shutdown();
 bool isColliding(const Vector2 *positionA, const Vector2 *scaleA, const Vector2 *positionB, const Vector2 *scaleB);
 void renderObject(const Texture2D *texture, const Vector2 *position, 
                   const Vector2 *scale);
+void ToggleGameMode();
+void updateGAME();
 
 void initialise()
 {
@@ -93,14 +100,32 @@ void initialise()
 
 void processInput() 
 {
-    gSlider1Movement = { 0.0f, 0.0f };
-    gSlider2Movement = { 0.0f, 0.0f };
 
-    if      (IsKeyDown(KEY_W)) gSlider1Movement.y = -1;
-    else if (IsKeyDown(KEY_S)) gSlider1Movement.y =  1;
+    if (IsKeyPressed(KEY_T)) ToggleGameMode();
 
-    if     (IsKeyDown(KEY_UP)) gSlider2Movement.y = -1;
-    else if (IsKeyDown(KEY_DOWN)) gSlider2Movement.y =  1;
+    if (currMODE == SINGLE_PLAYER) {
+
+        // gSlider1Movement = { 0.0f, 0.0f };
+        gSlider2Movement = { 0.0f, 0.0f };
+
+        if      (IsKeyDown(KEY_UP)) gSlider2Movement.y = -1;
+        else if (IsKeyDown(KEY_DOWN)) gSlider2Movement.y =  1;  
+        
+        // gSlider1Movement.y = -1;
+    }
+
+    else {
+
+        gSlider1Movement = { 0.0f, 0.0f };
+        gSlider2Movement = { 0.0f, 0.0f };
+
+        if      (IsKeyDown(KEY_W)) gSlider1Movement.y = -1;
+        else if (IsKeyDown(KEY_S)) gSlider1Movement.y =  1;
+
+        if     (IsKeyDown(KEY_UP)) gSlider2Movement.y = -1;
+        else if (IsKeyDown(KEY_DOWN)) gSlider2Movement.y =  1;
+    }
+    
 
     /*
     This system will cause quite a bit of "shaking" once the game object
@@ -116,101 +141,103 @@ void processInput()
 
 void update() 
 {
-    // Delta time
-    float ticks = (float) GetTime();
-    float deltaTime = ticks - gPreviousTicks;
-    gPreviousTicks  = ticks;
+    // // Delta time
+    // float ticks = (float) GetTime();
+    // float deltaTime = ticks - gPreviousTicks;
+    // gPreviousTicks  = ticks;
     
-    gSlider1Position = {
-    gSlider1Position.x + SLIDER_SPEED * gSlider1Movement.x * deltaTime,
-    gSlider1Position.y + SLIDER_SPEED * gSlider1Movement.y * deltaTime
-    };
+    // gSlider1Position = {
+    // gSlider1Position.x + SLIDER_SPEED * gSlider1Movement.x * deltaTime,
+    // gSlider1Position.y + SLIDER_SPEED * gSlider1Movement.y * deltaTime
+    // };
 
-    gSlider2Position = {
-    gSlider2Position.x + SLIDER_SPEED * gSlider2Movement.x * deltaTime,
-    gSlider2Position.y + SLIDER_SPEED * gSlider2Movement.y * deltaTime
-    };
+    // gSlider2Position = {
+    // gSlider2Position.x + SLIDER_SPEED * gSlider2Movement.x * deltaTime,
+    // gSlider2Position.y + SLIDER_SPEED * gSlider2Movement.y * deltaTime
+    // };
 
-    if (gSlider1Position.y < gWallSliderBound) {
-        gSlider1Position.y = gWallSliderBound;
-    }
-    else if (gSlider1Position.y > SCREEN_HEIGHT - gWallSliderBound) {
-        gSlider1Position.y = SCREEN_HEIGHT - gWallSliderBound;
-    }
+    // if (gSlider1Position.y < gWallSliderBound) {
+    //     gSlider1Position.y = gWallSliderBound;
+    // }
+    // else if (gSlider1Position.y > SCREEN_HEIGHT - gWallSliderBound) {
+    //     gSlider1Position.y = SCREEN_HEIGHT - gWallSliderBound;
+    // }
 
-    if (gSlider2Position.y < gWallSliderBound) {
-        gSlider2Position.y = gWallSliderBound;
-    }
-    else if (gSlider2Position.y > SCREEN_HEIGHT - gWallSliderBound) {
-        gSlider2Position.y = SCREEN_HEIGHT - gWallSliderBound;
-    }
+    // if (gSlider2Position.y < gWallSliderBound) {
+    //     gSlider2Position.y = gWallSliderBound;
+    // }
+    // else if (gSlider2Position.y > SCREEN_HEIGHT - gWallSliderBound) {
+    //     gSlider2Position.y = SCREEN_HEIGHT - gWallSliderBound;
+    // }
 
-    if (gBallMovement.x == 0.0f && gBallMovement.y == 0.0f) {
-        if (gPlayerOneBall) {
-            gBallMovement = { -1.0f, -0.005f };
-            gPlayerOneBall = false;
-        }
-        else if (gPlayerTwoBall) {
-            gBallMovement = { 1.0f, -0.005f };
-            gPlayerTwoBall = false;
-        }
-        else {
-            gBallMovement = { 1.0f, -0.005f };
-        }
+    // if (gBallMovement.x == 0.0f && gBallMovement.y == 0.0f) {
+    //     if (gPlayerOneBall) {
+    //         gBallMovement = { -1.0f, -0.005f };
+    //         gPlayerOneBall = false;
+    //     }
+    //     else if (gPlayerTwoBall) {
+    //         gBallMovement = { 1.0f, -0.005f };
+    //         gPlayerTwoBall = false;
+    //     }
+    //     else {
+    //         gBallMovement = { 1.0f, -0.005f };
+    //     }
         
-        Normalise(&gBallMovement);
-        gGameStarted = true;
-    }
-    gBallPosition = {
-        gBallPosition.x + INIT_BALL_SPEED * gBallMovement.x * deltaTime,
-        gBallPosition.y + INIT_BALL_SPEED * gBallMovement.y * deltaTime
-    };
+    //     Normalise(&gBallMovement);
+    //     gGameStarted = true;
+    // }
+    // gBallPosition = {
+    //     gBallPosition.x + INIT_BALL_SPEED * gBallMovement.x * deltaTime,
+    //     gBallPosition.y + INIT_BALL_SPEED * gBallMovement.y * deltaTime
+    // };
 
-    if (gBallPosition.y < gWallBallBound) {
-        gBallPosition.y = gWallBallBound;
-        gBallMovement.y *= -1;
-        Normalise(&gBallMovement);
-    }
-    else if (gBallPosition.y > SCREEN_HEIGHT - gWallBallBound) {
-        gBallPosition.y = SCREEN_HEIGHT - gWallBallBound;
-        gBallMovement.y *= -1;
-        Normalise(&gBallMovement);
-    }
+    // if (gBallPosition.y < gWallBallBound) {
+    //     gBallPosition.y = gWallBallBound;
+    //     gBallMovement.y *= -1;
+    //     Normalise(&gBallMovement);
+    // }
+    // else if (gBallPosition.y > SCREEN_HEIGHT - gWallBallBound) {
+    //     gBallPosition.y = SCREEN_HEIGHT - gWallBallBound;
+    //     gBallMovement.y *= -1;
+    //     Normalise(&gBallMovement);
+    // }
 
-    if (gBallPosition.x < 0.0f) {
-        gGameStarted = false;
-        gBallPosition = BALL_INIT_POS;
-        gBallMovement.x = 0.0f;
-        gBallMovement.y = 0.0f;
-        gPlayerTwoBall = true;
-    }
+    // if (gBallPosition.x < 0.0f) {
+    //     gGameStarted = false;
+    //     gBallPosition = BALL_INIT_POS;
+    //     gBallMovement.x = 0.0f;
+    //     gBallMovement.y = 0.0f;
+    //     gPlayerTwoBall = true;
+    // }
 
-    if (gBallPosition.x > SCREEN_WIDTH) {
-        gGameStarted = false;
-        gBallPosition = BALL_INIT_POS;
-        gBallMovement.x = 0.0f;
-        gBallMovement.y = 0.0f;
-        gPlayerOneBall = true;
-    }
+    // if (gBallPosition.x > SCREEN_WIDTH) {
+    //     gGameStarted = false;
+    //     gBallPosition = BALL_INIT_POS;
+    //     gBallMovement.x = 0.0f;
+    //     gBallMovement.y = 0.0f;
+    //     gPlayerOneBall = true;
+    // }
 
-    float offset = 0.0f;
-    if (isColliding(&gBallPosition, &gBallScale, &gSlider1Position, &gSliderScale)) {
-        offset = (gBallPosition.y - gSlider1Position.y) / (gSliderScale.y / 2.0f);
+    // float offset = 0.0f;
+    // if (isColliding(&gBallPosition, &gBallScale, &gSlider1Position, &gSliderScale)) {
+    //     offset = (gBallPosition.y - gSlider1Position.y) / (gSliderScale.y / 2.0f);
 
-        gBallPosition.x = gSlider1Position.x + (gSliderScale.x / 2.0f) + (gBallScale.x / 2.0f);
-        gBallMovement.x *= -1;
-        gBallMovement.y = offset;
-        Normalise(&gBallMovement);
+    //     gBallPosition.x = gSlider1Position.x + (gSliderScale.x / 2.0f) + (gBallScale.x / 2.0f);
+    //     gBallMovement.x *= -1;
+    //     gBallMovement.y = offset;
+    //     Normalise(&gBallMovement);
 
-    }
-    else if (isColliding(&gBallPosition, &gBallScale, &gSlider2Position, &gSliderScale)) {
-        offset = (gBallPosition.y - gSlider2Position.y) / (gSliderScale.y / 2.0f);
+    // }
+    // else if (isColliding(&gBallPosition, &gBallScale, &gSlider2Position, &gSliderScale)) {
+    //     offset = (gBallPosition.y - gSlider2Position.y) / (gSliderScale.y / 2.0f);
 
-        gBallPosition.x = gSlider2Position.x - (gSliderScale.x / 2.0f) - (gBallScale.x / 2.0f);
-        gBallMovement.x *= -1;
-        gBallMovement.y = offset;
-        Normalise(&gBallMovement);
-    }
+    //     gBallPosition.x = gSlider2Position.x - (gSliderScale.x / 2.0f) - (gBallScale.x / 2.0f);
+    //     gBallMovement.x *= -1;
+    //     gBallMovement.y = offset;
+    //     Normalise(&gBallMovement);
+    // }
+
+    updateGAME();
 
 }
 
@@ -316,4 +343,141 @@ void renderObject(const Texture2D *texture, const Vector2 *position,
         textureArea, destinationArea, originOffset,
         gAngle, WHITE
     );
+}
+
+void updateGAME() {
+
+    // Delta time
+    float ticks = (float) GetTime();
+    float deltaTime = ticks - gPreviousTicks;
+    gPreviousTicks  = ticks;
+
+    std:: cout << currMODE << std::endl;
+    
+    if (currMODE == SINGLE_PLAYER) {
+
+        gSlider2Position = {
+            gSlider2Position.x + SLIDER_SPEED * gSlider2Movement.x * deltaTime,
+            gSlider2Position.y + SLIDER_SPEED * gSlider2Movement.y * deltaTime
+        };
+
+        gSlider1Position = {
+            gSlider1Position.x + SLIDER_SPEED * gSlider1Movement.x * deltaTime,
+            gSlider1Position.y + SLIDER_SPEED * gSlider1Movement.y * deltaTime
+        };
+
+        if (gSlider1Position.y < gWallSliderBound) {
+            gSlider1Movement.y = 1;
+        }
+        else if (gSlider1Position.y > SCREEN_HEIGHT - gWallSliderBound) {
+            gSlider1Movement.y = -1;
+        }
+    }
+
+    else {
+
+        gSlider1Position = {
+            gSlider1Position.x + SLIDER_SPEED * gSlider1Movement.x * deltaTime,
+            gSlider1Position.y + SLIDER_SPEED * gSlider1Movement.y * deltaTime
+        };
+
+        gSlider2Position = {
+            gSlider2Position.x + SLIDER_SPEED * gSlider2Movement.x * deltaTime,
+            gSlider2Position.y + SLIDER_SPEED * gSlider2Movement.y * deltaTime
+        };
+    }
+
+    if (gSlider1Position.y < gWallSliderBound) {
+        gSlider1Position.y = gWallSliderBound;
+    }
+    else if (gSlider1Position.y > SCREEN_HEIGHT - gWallSliderBound) {
+        gSlider1Position.y = SCREEN_HEIGHT - gWallSliderBound;
+    }
+
+    if (gSlider2Position.y < gWallSliderBound) {
+        gSlider2Position.y = gWallSliderBound;
+    }
+    else if (gSlider2Position.y > SCREEN_HEIGHT - gWallSliderBound) {
+        gSlider2Position.y = SCREEN_HEIGHT - gWallSliderBound;
+    }
+
+    if (gBallMovement.x == 0.0f && gBallMovement.y == 0.0f) {
+        if (gPlayerOneBall) {
+            gBallMovement = { -1.0f, -0.005f };
+            gPlayerOneBall = false;
+        }
+        else if (gPlayerTwoBall) {
+            gBallMovement = { 1.0f, -0.005f };
+            gPlayerTwoBall = false;
+        }
+        else {
+            gBallMovement = { 1.0f, -0.005f };
+        }
+        
+        Normalise(&gBallMovement);
+        gGameStarted = true;
+    }
+    gBallPosition = {
+        gBallPosition.x + INIT_BALL_SPEED * gBallMovement.x * deltaTime,
+        gBallPosition.y + INIT_BALL_SPEED * gBallMovement.y * deltaTime
+    };
+
+    if (gBallPosition.y < gWallBallBound) {
+        gBallPosition.y = gWallBallBound;
+        gBallMovement.y *= -1;
+        Normalise(&gBallMovement);
+    }
+    else if (gBallPosition.y > SCREEN_HEIGHT - gWallBallBound) {
+        gBallPosition.y = SCREEN_HEIGHT - gWallBallBound;
+        gBallMovement.y *= -1;
+        Normalise(&gBallMovement);
+    }
+
+    if (gBallPosition.x < 0.0f) {
+        gGameStarted = false;
+        gBallPosition = BALL_INIT_POS;
+        gBallMovement.x = 0.0f;
+        gBallMovement.y = 0.0f;
+        gPlayerTwoBall = true;
+    }
+
+    if (gBallPosition.x > SCREEN_WIDTH) {
+        gGameStarted = false;
+        gBallPosition = BALL_INIT_POS;
+        gBallMovement.x = 0.0f;
+        gBallMovement.y = 0.0f;
+        gPlayerOneBall = true;
+    }
+
+    float offset = 0.0f;
+    if (isColliding(&gBallPosition, &gBallScale, &gSlider1Position, &gSliderScale)) {
+        offset = (gBallPosition.y - gSlider1Position.y) / (gSliderScale.y / 2.0f);
+
+        gBallPosition.x = gSlider1Position.x + (gSliderScale.x / 2.0f) + (gBallScale.x / 2.0f);
+        gBallMovement.x *= -1;
+        gBallMovement.y = offset;
+        Normalise(&gBallMovement);
+
+    }
+    else if (isColliding(&gBallPosition, &gBallScale, &gSlider2Position, &gSliderScale)) {
+        offset = (gBallPosition.y - gSlider2Position.y) / (gSliderScale.y / 2.0f);
+
+        gBallPosition.x = gSlider2Position.x - (gSliderScale.x / 2.0f) - (gBallScale.x / 2.0f);
+        gBallMovement.x *= -1;
+        gBallMovement.y = offset;
+        Normalise(&gBallMovement);
+    }
+
+}
+
+void ToggleGameMode() {
+
+    if (currMODE == SINGLE_PLAYER) currMODE = TWO_PLAYER;
+    
+    else  {
+
+        currMODE = SINGLE_PLAYER;
+        gSlider1Movement.y = -1;
+        
+    }
 }
