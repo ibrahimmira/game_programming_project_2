@@ -1,5 +1,5 @@
 /**
-* Author: [Your name here]
+* Author: Ibrahim Mira
 * Assignment: Pong Clone
 * Date due: 2025-10-13, 11:59pm
 * I pledge that I have completed this assignment without
@@ -15,28 +15,28 @@
 constexpr int SCREEN_WIDTH  = 1600 / 1.1,
               SCREEN_HEIGHT = 900 / 1.1,
               FPS           = 60,
-              // SIZE          = 500 / 2,
               SLIDER_SPEED  = 500,
               INIT_BALL_SPEED = 500;
 
 constexpr char    BG_COLOUR[]    = "#000000ff";
 constexpr Vector2 ORIGIN         = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 },
-                  SLIDER_SIZE      = { (float) 382 / 30, (float) 1557 / 10 },
+                  SLIDER_SIZE      = { (float) 70 / 2, (float) 301 / 2 },
                   SLIDER1_INIT_POS  = { ORIGIN.x - 680, ORIGIN.y },
                   SLIDER2_INIT_POS  = { ORIGIN.x + 680, ORIGIN.y },
-                  DASHED_LINE_SIZE = { (float) 63, (float) 942 },
-                  DASHED_LINE_POS = { ORIGIN.x, ORIGIN.y - 20 },
 
-                  // GAMEOVER_SIZE = {(float) 700, (float) 500};
-                  GAMEOVER_SIZE = {(float) 640, (float) 480};
-                //   BALL_SIZE       = { (float) 198 / 8, (float) 198 / 8 },
-                //   BALL_INIT_POS   = { ORIGIN.x, ORIGIN.y };
+                  BLACKHOLE_SIZE = { (float) 400, (float) 360 },
+                  BLACKHOLE_POS = { ORIGIN.x, ORIGIN.y },
+
+                  GAMEOVER_SIZE = {(float) 640, (float) 480},
+
+                  BACKGROUND_SIZE = {SCREEN_WIDTH, SCREEN_HEIGHT},
+                  BACKGROUND_POS = { ORIGIN.x, ORIGIN.y };
                   
 constexpr char SLIDER[] = "assets/game/slider.png";
-constexpr char DASHED_LINE[] = "assets/game/dashed_line.png";
-constexpr char BALL[] = "assets/game/ball.png";
-constexpr char GAMEOVER[] = "assets/game/gameover2.png";
-
+constexpr char DASHED_LINE[] = "assets/game/blackhole.png";
+constexpr char BALL[] = "assets/game/earth_ball.png";
+constexpr char GAMEOVER[] = "assets/game/gameover.png";
+constexpr char BACKGROUND[] = "assets/game/background.jpg";
 
 
 // Global Variables
@@ -48,10 +48,11 @@ bool      gGameStarted   = false,
 
 enum gGAMEMODE  { TWO_PLAYER, SINGLE_PLAYER };
 
-gGAMEMODE currMODE = TWO_PLAYER;
+gGAMEMODE gCurrMode = TWO_PLAYER;
 
 float     gAngle         = 0.0f,
-          gPreviousTicks = 0.0f;
+          gPreviousTicks = 0.0f,
+          gSpawnOffsets[3] = { -40.0f, 0.0f, 40.0f };
 
 Vector2 gSlider1Position  = SLIDER1_INIT_POS,
         gSlider2Position  = SLIDER2_INIT_POS,
@@ -59,14 +60,18 @@ Vector2 gSlider1Position  = SLIDER1_INIT_POS,
         gSlider2Movement  = { 0.0f, 0.0f },
         gSliderScale     = SLIDER_SIZE,
 
-        gDashedLinePosition = DASHED_LINE_POS,
-        gDashedLineScale    = DASHED_LINE_SIZE,
-
-        gMousePosition = GetMousePosition(),
+        gBlackholePosition = BLACKHOLE_POS,
+        gBlackholeScale    = BLACKHOLE_SIZE,
         
         gGameOverPosition = ORIGIN,
-        gGameOverScale = GAMEOVER_SIZE;
+        gGameOverScale = GAMEOVER_SIZE,
 
+        gBackgroundPosition = BACKGROUND_POS,
+        gBackgroundScale    = BACKGROUND_SIZE;
+
+float   gWallSliderBound = gSliderScale.y / 2.0f;
+
+Texture2D gBACKGROUND;
 Texture2D gSLIDER1;
 Texture2D gSLIDER2;
 Texture2D gDASHED_LINE;
@@ -74,7 +79,8 @@ Texture2D gGameOverSign;
 
 unsigned int startTime;
 
-float gWallSliderBound = gSliderScale.y / 2.0f;
+int gNextSpawn = 0,
+    gNumActiveBalls = 0;
 
 // Function Declarations
 void initialise();
@@ -86,25 +92,22 @@ bool isColliding(const Vector2 *positionA, const Vector2 *scaleA, const Vector2 
 void renderObject(const Texture2D *texture, const Vector2 *position, 
                   const Vector2 *scale);
 void ToggleGameMode();
-void updateGAME();
+void updateSliders(float deltaTime);
 void updateBall(float deltaTime);
 
 // Struct 
-
-float gSpawnOffsets[3] = { -40.0f, 0.0f, 40.0f };
-int nextSpawn = 0;
-
 struct Ball
 
 {
     /* data */
-    Vector2     BALL_SIZE       = { (float) 198 / 8, (float) 198 / 8 },
+
+    Vector2     BALL_SIZE       = { (float) 256 / 7, (float) 256 / 7 },
                 BALL_INIT_POS   = { ORIGIN.x, ORIGIN.y },
                 BallPosition    = BALL_INIT_POS,
                 BallMovement    = { 0.0f, 0.0f },
                 BallScale       = BALL_SIZE;
 
-    float       WallBallBound   = BallScale.y / 2.0f;
+    float       mWallBallBound   = BallScale.y / 2.0f;
     
     Texture2D mBALL;
 
@@ -114,22 +117,16 @@ struct Ball
 
     void activate()   { 
         mBallStatus  = ACTIVE;  
-        // gGameOver = false;
-
     }
 
     void deactivate() { 
         mBallStatus  = INACTIVE; 
-        // float mRandomYoffset    = (float)GetRandomValue(-50,50);
-        // BallPosition.x = BALL_INIT_POS.x;
-        // BallPosition.y = BALL_INIT_POS.y + mRandomYoffset;
-        // BallPosition = BALL_INIT_POS;
-        // BallMovement    = { 0.0f, 0.0f };
 
         BallPosition = BALL_INIT_POS;
-        BallPosition.y += gSpawnOffsets[nextSpawn];
+        BallPosition.y += gSpawnOffsets[gNextSpawn];
         BallMovement = { 0.0f, 0.0f };
-        nextSpawn = (nextSpawn + 1) % 3;
+
+        gNextSpawn = (gNextSpawn + 1) % 3;
     }
     bool isActive() {
         if (mBallStatus == ACTIVE) return true;
@@ -150,17 +147,14 @@ struct Ball
         }
     }
 
-    
 };
 
 Ball gBall1;
 Ball gBall2;
 Ball gBall3;
 
-int gNumActiveBalls = 0;
-
 // Use an array to store multiple balls
-Ball balls[3] = { gBall1, gBall2, gBall3 };
+Ball gBalls[3] = { gBall1, gBall2, gBall3 };
 
 void initialise()
 {
@@ -168,14 +162,14 @@ void initialise()
 
     startTime = time(NULL);
 
+    gBACKGROUND     = LoadTexture(BACKGROUND);
     gSLIDER1        = LoadTexture(SLIDER);
     gSLIDER2        = LoadTexture(SLIDER);
     gDASHED_LINE    = LoadTexture(DASHED_LINE);
     gGameOverSign   = LoadTexture(GAMEOVER);
 
     for (int x = 0; x < 3; x++ ) {
-        balls[x].loadBall();
-
+        gBalls[x].loadBall();
     }
 
     SetTargetFPS(FPS);
@@ -204,7 +198,7 @@ void processInput()
             gNumActiveBalls = 3;
         }
 
-        if (currMODE == SINGLE_PLAYER) {
+        if (gCurrMode == SINGLE_PLAYER) {
 
             gSlider2Movement = { 0.0f, 0.0f };
 
@@ -228,30 +222,28 @@ void processInput()
 
     if (gGameOver && IsKeyPressed(KEY_SPACE)) gGameOver = false;
 
-
-    /*
-    This system will cause quite a bit of "shaking" once the game object
-    reaches the mouse position. Ideally, we'd stop checking for this
-    once the object reaches a general area AROUND the mouse position.
-    */
-   
-    // // to avoid faster diagonal speed
-    // if (GetLength(&gSlider1Movement) > 1.0f) Normalise(&gSlider1Movement);
-
     if (IsKeyPressed(KEY_Q) || WindowShouldClose()) gAppStatus = TERMINATED;
 }
 
 void update() 
 {
-    
-    if (!gGameOver) updateGAME();
+    if (!gGameOver) {
 
-    // if ((gPlayerOneBall && !gPlayerTwoBall) || (gPlayerTwoBall && !gPlayerOneBall)) {
-    //     gGameOver = true;
-    // }
+        // Delta time
+        float ticks = (float) GetTime();
+        float deltaTime = ticks - gPreviousTicks;
+        gPreviousTicks  = ticks;
+        
+        
+        updateSliders(deltaTime);
+        updateBall(deltaTime);
 
-    // if (gGameOver) printf("GameOver\n");
-    
+        if (gGameOver) {
+            gSlider1Position  = SLIDER1_INIT_POS;
+            gSlider2Position  = SLIDER2_INIT_POS;
+        }
+
+    }   
 
 }
 
@@ -264,16 +256,18 @@ void render()
     if (gGameOver) renderObject(&gGameOverSign, &gGameOverPosition ,&gGameOverScale);
 
     else {
-        // Render SLIDER1
+
+
+        renderObject(&gBACKGROUND, &gBackgroundPosition, &gBackgroundScale);
+
         renderObject(&gSLIDER1, &gSlider1Position, &gSliderScale);
-        // Render SLIDER2
+
         renderObject(&gSLIDER1, &gSlider2Position, &gSliderScale);
-        // Render DASHED LINE
-        renderObject(&gDASHED_LINE, &gDashedLinePosition, &gDashedLineScale);
-        // Render BALL
-        // renderObject(&mBALL, &gBallPosition, &gBallScale);
+
+        renderObject(&gDASHED_LINE, &gBlackholePosition, &gBlackholeScale);
+
         for (int x = 0; x < 3; x++) {
-            balls[x].renderBall();
+            gBalls[x].renderBall();
     }
     }
 
@@ -287,9 +281,10 @@ void shutdown()
     UnloadTexture(gSLIDER2);
     UnloadTexture(gDASHED_LINE);
     UnloadTexture(gGameOverSign);
+    UnloadTexture(gBACKGROUND);
 
     for (int x = 0; x < 3; x++ ) {
-        balls[x].unloadBall();
+        gBalls[x].unloadBall();
     }
 
 }
@@ -332,6 +327,7 @@ bool isColliding(const Vector2 *positionA,  const Vector2 *scaleA,
     float yDistance = fabs(positionA->y - positionB->y) - ((scaleA->y + scaleB->y) / 2.0f);
 
     if (xDistance < 0.0f && yDistance < 0.0f) return true;
+    
 
     return false;
 }
@@ -371,14 +367,118 @@ void renderObject(const Texture2D *texture, const Vector2 *position,
     );
 }
 
-void updateGAME() {
+void ToggleGameMode() {
 
-    // Delta time
-    float ticks = (float) GetTime();
-    float deltaTime = ticks - gPreviousTicks;
-    gPreviousTicks  = ticks;
+    if (gCurrMode == SINGLE_PLAYER) gCurrMode = TWO_PLAYER;
     
-    if (currMODE == SINGLE_PLAYER && !gGameOver) {
+    else  {
+        gCurrMode = SINGLE_PLAYER;
+        gSlider1Movement.y = -1;
+    }
+}
+
+void updateBall(float deltaTime) {
+
+    for (int x = 0; x < 3; x++) {
+        if ( x < gNumActiveBalls) {
+            gBalls[x].activate();
+        } 
+        else  gBalls[x].deactivate();
+    }
+
+    for (int x = 0; x < 3; x++) {
+
+        if (gBalls[x].isActive()){
+
+            if (gBalls[x].BallMovement.x == 0.0f && gBalls[x].BallMovement.y == 0.0f) {
+
+                gBalls[x].BallMovement = { 1.0f, -0.005f };
+                Normalise(&gBalls[x].BallMovement);
+                gGameStarted = true;
+                
+            }
+            gBalls[x].BallPosition = {
+                gBalls[x].BallPosition.x + INIT_BALL_SPEED * gBalls[x].BallMovement.x * deltaTime,
+                gBalls[x].BallPosition.y + INIT_BALL_SPEED * gBalls[x].BallMovement.y * deltaTime
+            };
+
+            if (gBalls[x].BallPosition.y < gBalls[x].mWallBallBound) {
+                gBalls[x].BallPosition.y = gBalls[x].mWallBallBound;
+                gBalls[x].BallMovement.y *= -1;
+                Normalise(&gBalls[x].BallMovement);
+            }
+            else if (gBalls[x].BallPosition.y > SCREEN_HEIGHT - gBalls[x].mWallBallBound) {
+                gBalls[x].BallPosition.y = SCREEN_HEIGHT - gBalls[x].mWallBallBound;
+                gBalls[x].BallMovement.y *= -1;
+                Normalise(&gBalls[x].BallMovement);
+            }
+
+            if (gBalls[x].BallPosition.x < 0.0f) {
+                gGameStarted = false;
+                gBalls[x].BallPosition = gBalls[x].BALL_INIT_POS;
+                gBalls[x].BallMovement.x = 0.0f;
+                gBalls[x].BallMovement.y = 0.0f;
+                
+                gPlayerTwoBall = true;
+
+                gBalls[x].deactivate();
+                gNumActiveBalls -= 1;
+                
+                // Ensures that if a balls goes off-screen, it does NOT get reactivated
+                int lastActive = gNumActiveBalls;          
+                if (x < lastActive) {
+                std::swap(gBalls[x], gBalls[lastActive]);}
+
+                if (gNumActiveBalls == 0) gGameOver = true;
+            }
+
+            if (gBalls[x].BallPosition.x > SCREEN_WIDTH) {
+                gGameStarted = false;
+                gBalls[x].BallPosition = gBalls[x].BALL_INIT_POS;
+                gBalls[x].BallMovement.x = 0.0f;
+                gBalls[x].BallMovement.y = 0.0f;
+
+                gPlayerOneBall = true;
+
+                gBalls[x].deactivate();
+                gNumActiveBalls -= 1;
+
+                // Ensures that if a balls goes off-screen, it does NOT get reactivated
+                int lastActive = gNumActiveBalls;          
+                if (x < lastActive) {
+                std::swap(gBalls[x], gBalls[lastActive]); }
+
+                if (gNumActiveBalls == 0) gGameOver = true;
+            }
+            
+            // Offset is to help determine which direction (y) the ball bounces to.
+            float offset = 0.0f;
+            if (isColliding(&gBalls[x].BallPosition, &gBalls[x].BallScale, &gSlider1Position, &gSliderScale)) {
+                offset = (gBalls[x].BallPosition.y - gSlider1Position.y) / (gSliderScale.y / 2.0f);
+
+                gBalls[x].BallPosition.x = gSlider1Position.x + (gSliderScale.x / 2.0f) + (gBalls[x].BallScale.x / 2.0f);
+                gBalls[x].BallMovement.x *= -1;
+                gBalls[x].BallMovement.y = offset;
+                Normalise(&gBalls[x].BallMovement);
+
+            }
+            else if (isColliding(&gBalls[x].BallPosition, &gBalls[x].BallScale, &gSlider2Position, &gSliderScale)) {
+                offset = (gBalls[x].BallPosition.y - gSlider2Position.y) / (gSliderScale.y / 2.0f);
+
+                gBalls[x].BallPosition.x = gSlider2Position.x - (gSliderScale.x / 2.0f) - (gBalls[x].BallScale.x / 2.0f);
+                gBalls[x].BallMovement.x *= -1;
+                gBalls[x].BallMovement.y = offset;
+                Normalise(&gBalls[x].BallMovement);
+            }
+        }
+        
+    }
+    
+}
+
+void updateSliders(float deltaTime) {
+
+    if (gCurrMode == SINGLE_PLAYER && !gGameOver) {
 
         gSlider2Position = {
             gSlider2Position.x + SLIDER_SPEED * gSlider2Movement.x * deltaTime,
@@ -424,125 +524,4 @@ void updateGAME() {
     else if (gSlider2Position.y > SCREEN_HEIGHT - gWallSliderBound) {
         gSlider2Position.y = SCREEN_HEIGHT - gWallSliderBound;
     }
-
-    updateBall(deltaTime);
-
-    if (gGameOver) {
-        gSlider1Position  = SLIDER1_INIT_POS;
-        gSlider2Position  = SLIDER2_INIT_POS;
-    }
-
-}
-
-void ToggleGameMode() {
-
-    if (currMODE == SINGLE_PLAYER) currMODE = TWO_PLAYER;
-    
-    else  {
-
-        currMODE = SINGLE_PLAYER;
-        gSlider1Movement.y = -1;
-
-    }
-}
-
-void updateBall(float deltaTime) {
-
-    for (int x = 0; x < 3; x++) {
-        if ( x < gNumActiveBalls) {
-            balls[x].activate();
-        } 
-        else  balls[x].deactivate();
-    }
-
-    for (int x = 0; x < 3; x++) {
-
-        if (balls[x].isActive()){
-
-            if (balls[x].BallMovement.x == 0.0f && balls[x].BallMovement.y == 0.0f) {
-                // if (gPlayerOneBall) {
-                //     balls[x].BallMovement = { -1.0f, -0.005f };
-                //     gPlayerOneBall = false;
-                // }
-                // else if (gPlayerTwoBall) {
-                //     balls[x].BallMovement = { 1.0f, -0.005f };
-                //     gPlayerTwoBall = false;
-                // }
-                // else {
-                balls[x].BallMovement = { 1.0f, -0.005f };
-                //}
-                
-                Normalise(&balls[x].BallMovement);
-                gGameStarted = true;
-            }
-            balls[x].BallPosition = {
-                balls[x].BallPosition.x + INIT_BALL_SPEED * balls[x].BallMovement.x * deltaTime,
-                balls[x].BallPosition.y + INIT_BALL_SPEED * balls[x].BallMovement.y * deltaTime
-            };
-
-            if (balls[x].BallPosition.y < balls[x].WallBallBound) {
-                balls[x].BallPosition.y = balls[x].WallBallBound;
-                balls[x].BallMovement.y *= -1;
-                Normalise(&balls[x].BallMovement);
-            }
-            else if (balls[x].BallPosition.y > SCREEN_HEIGHT - balls[x].WallBallBound) {
-                balls[x].BallPosition.y = SCREEN_HEIGHT - balls[x].WallBallBound;
-                balls[x].BallMovement.y *= -1;
-                Normalise(&balls[x].BallMovement);
-            }
-
-            if (balls[x].BallPosition.x < 0.0f) {
-                gGameStarted = false;
-                balls[x].BallPosition = balls[x].BALL_INIT_POS;
-                balls[x].BallMovement.x = 0.0f;
-                balls[x].BallMovement.y = 0.0f;
-                // gPlayerTwoBall = true;
-                balls[x].deactivate();
-                gNumActiveBalls -= 1;
-
-                int lastActive = gNumActiveBalls;          
-                if (x < lastActive) {
-                std::swap(balls[x], balls[lastActive]);}
-
-                if (gNumActiveBalls == 0) gGameOver = true;
-            }
-
-            if (balls[x].BallPosition.x > SCREEN_WIDTH) {
-                gGameStarted = false;
-                balls[x].BallPosition = balls[x].BALL_INIT_POS;
-                balls[x].BallMovement.x = 0.0f;
-                balls[x].BallMovement.y = 0.0f;
-                // gPlayerOneBall = true;
-                balls[x].deactivate();
-                gNumActiveBalls -= 1;
-
-                int lastActive = gNumActiveBalls;          
-                if (x < lastActive) {
-                std::swap(balls[x], balls[lastActive]); }
-
-                if (gNumActiveBalls == 0) gGameOver = true;
-            }
-
-            float offset = 0.0f;
-            if (isColliding(&balls[x].BallPosition, &balls[x].BallScale, &gSlider1Position, &gSliderScale)) {
-                offset = (balls[x].BallPosition.y - gSlider1Position.y) / (gSliderScale.y / 2.0f);
-
-                balls[x].BallPosition.x = gSlider1Position.x + (gSliderScale.x / 2.0f) + (balls[x].BallScale.x / 2.0f);
-                balls[x].BallMovement.x *= -1;
-                balls[x].BallMovement.y = offset;
-                Normalise(&balls[x].BallMovement);
-
-            }
-            else if (isColliding(&balls[x].BallPosition, &balls[x].BallScale, &gSlider2Position, &gSliderScale)) {
-                offset = (balls[x].BallPosition.y - gSlider2Position.y) / (gSliderScale.y / 2.0f);
-
-                balls[x].BallPosition.x = gSlider2Position.x - (gSliderScale.x / 2.0f) - (balls[x].BallScale.x / 2.0f);
-                balls[x].BallMovement.x *= -1;
-                balls[x].BallMovement.y = offset;
-                Normalise(&balls[x].BallMovement);
-            }
-        }
-        
-    }
-    
 }
